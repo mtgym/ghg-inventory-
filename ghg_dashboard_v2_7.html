@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GHG Inventory Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0d2d4a;--navy2:#1a4568;--bg:#f0f2f5;--card:#fff;
+  --border:#e2e8f0;--text:#0f172a;--text2:#475569;--text3:#94a3b8;
+  --s1:#f59e0b;--s2:#3b82f6;--font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px}
+
+/* TOPBAR */
+.topbar{background:var(--navy);color:#fff;height:50px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200}
+.tb-brand{display:flex;align-items:center;gap:10px}
+.tb-logo{width:28px;height:28px;background:rgba(255,255,255,.12);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.tb-title{font-size:13px;font-weight:700}
+.tb-sub{font-size:10px;opacity:.4;margin-top:1px}
+
+/* FILTER BAR */
+.filterbar{background:var(--card);border-bottom:2px solid var(--border);padding:10px 20px;position:sticky;top:50px;z-index:190;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.fb-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fb-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);white-space:nowrap}
+.fb-sep{width:1px;height:24px;background:var(--border)}
+.filter-chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--text2);transition:.15s;user-select:none;white-space:nowrap}
+.filter-chip:hover{border-color:var(--navy);color:var(--navy)}
+.filter-chip.active-s1{background:var(--s1);border-color:var(--s1);color:#fff}
+.filter-chip.active-s2{background:var(--s2);border-color:var(--s2);color:#fff}
+.filter-chip.active-src{background:var(--navy);border-color:var(--navy);color:#fff}
+.filter-chip.active-yr{background:var(--navy2);border-color:var(--navy2);color:#fff}
+.btn-reset{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid #fca5a5;background:#fee2e2;color:#b91c1c;transition:.15s;display:none;white-space:nowrap}
+.btn-reset:hover{background:#fecaca}
+.filter-active-label{font-size:11px;color:var(--text3);font-style:italic;display:none}
+
+/* TABS */
+.tabnav{background:var(--card);border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:0;overflow-x:auto}
+.tabnav::-webkit-scrollbar{height:2px}
+.tab{padding:11px 16px;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);transition:.15s;white-space:nowrap}
+.tab:hover{color:var(--text2)}
+.tab.on{color:var(--navy);border-bottom-color:var(--navy)}
+
+/* LAYOUT */
+.main{padding:16px 20px 60px;max-width:1400px;margin:0 auto}
+.page{display:none}.page.on{display:block}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+
+/* KPI */
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;border-top:3px solid var(--c,var(--navy));transition:.2s}
+.kpi:hover{box-shadow:0 4px 12px rgba(0,0,0,.07);transform:translateY(-1px)}
+.kpi-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:5px}
+.kpi-v{font-size:20px;font-weight:700;font-family:var(--mono);color:var(--c,var(--navy));line-height:1}
+.kpi-u{font-size:11px;color:var(--text3);margin-top:2px}
+.kpi-b{display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:600;margin-top:5px;padding:2px 6px;border-radius:3px}
+.up-b{background:#fee2e2;color:#b91c1c}.dn-b{background:#dcfce7;color:#15803d}.neu-b{background:#f1f5f9;color:var(--text3)}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative}
+.card-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:1px}
+.card-sub{font-size:11px;color:var(--text3);margin-bottom:10px}
+
+/* FILTER INDICATOR on card */
+.card-filter-badge{position:absolute;top:12px;right:12px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;background:#dbeafe;color:#1e40af;display:none}
+
+/* CHART */
+.ch{position:relative}
+.h140{height:140px}.h180{height:180px}.h220{height:220px}
+.h260{height:260px}.h300{height:300px}.h340{height:340px}
+
+/* CONTROLS */
+.ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.ctrl-lbl{font-size:11px;font-weight:600;color:var(--text3)}
+.seg{display:flex;background:var(--bg);border-radius:6px;padding:2px;gap:1px}
+.sb{padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text2);transition:.12s;font-family:var(--font)}
+.sb.on{background:var(--card);color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.ctrl-sel{border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-family:var(--font);font-size:11px;color:var(--text);background:var(--card);outline:none;cursor:pointer}
+
+/* LEGEND */
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:7px}
+.leg-i{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2)}
+.leg-d{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* MINI BARS */
+.mb-row{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px}
+.mb-lbl{width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;color:var(--text2)}
+.mb-track{flex:1;height:7px;background:#f1f5f9;border-radius:4px;overflow:hidden}
+.mb-fill{height:100%;border-radius:4px;transition:.4s}
+.mb-val{font-family:var(--mono);font-size:11px;color:var(--text);min-width:65px;text-align:right}
+
+/* TABLE */
+.tbl-wrap{overflow:auto;border-radius:8px;border:1px solid var(--border);max-height:400px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead{position:sticky;top:0;z-index:1}
+th{background:var(--navy);color:#fff;padding:8px 11px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{background:var(--navy2)}
+th.asc::after{content:' ↑'}th.desc::after{content:' ↓'}
+td{padding:7px 11px;border-bottom:1px solid #f1f5f9;color:var(--text2);white-space:nowrap}
+tr:last-child td{border-bottom:none}tr:hover td{background:#f8fafc}
+.nr{text-align:right;font-family:var(--mono)}
+.tag{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700}
+.t-s1{background:#fef3c7;color:#b45309}.t-s2{background:#dbeafe;color:#1e40af}
+.tr-tot td{font-weight:700;background:#eef3f9!important;color:var(--text)}
+
+/* EMPTY STATE */
+.empty{padding:40px;text-align:center;color:var(--text3);font-size:12px}
+.ch-empty{display:none;position:absolute;top:0;left:0;width:100%;height:100%;align-items:center;justify-content:center;font-size:12px;color:var(--text3);background:var(--card);border-radius:8px;z-index:2}
+.ch-empty.show{display:flex}
+
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+#up-zone:hover,#up-zone.dragover{border-color:#0d2d4a!important;background:#eef2f8!important}
+@media print{.topbar,.filterbar,.tabnav{display:none!important}.page{display:block!important}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px;background:#f0f2f5">
+  <div style="background:#fff;border-radius:16px;padding:40px;max-width:520px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.08)">
+
+    <!-- Logo + Judul -->
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid #e2e8f0">
+      <div id="logo-preview" onclick="document.getElementById('logo-fi').click()" style="width:56px;height:56px;border-radius:10px;border:2px dashed #c8d4e0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;overflow:hidden;background:#f8fafc;transition:.2s" title="Klik untuk upload logo">
+        <span id="logo-icon" style="font-size:22px">🏢</span>
+        <img id="logo-img" style="display:none;width:100%;height:100%;object-fit:contain">
+      </div>
+      <input type="file" id="logo-fi" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0">
+      <div style="flex:1">
+        <div style="font-size:18px;font-weight:700;color:#0d2d4a;margin-bottom:2px">GHG Inventory Dashboard</div>
+        <div style="font-size:12px;color:#94a3b8">Setup profil perusahaan sebelum mulai</div>
+      </div>
+    </div>
+
+    <!-- Form Profil -->
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#94a3b8;display:block;margin-bottom:5px">Nama Perusahaan</label>
+        <input id="inp-company" type="text" placeholder="PT. Dok dan Perkapalan Lamongan" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;color:#0f172a;transition:.15s" onfocus="this.style.borderColor='#0d2d4a'" onblur="this.style.borderColor='#e2e8f0'">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#94a3b8;display:block;margin-bottom:5px">Periode Awal</label>
+          <input id="inp-period-start" type="text" placeholder="2023" maxlength="4" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;color:#0f172a;transition:.15s" onfocus="this.style.borderColor='#0d2d4a'" onblur="this.style.borderColor='#e2e8f0'">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#94a3b8;display:block;margin-bottom:5px">Periode Akhir</label>
+          <input id="inp-period-end" type="text" placeholder="2025" maxlength="4" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;color:#0f172a;transition:.15s" onfocus="this.style.borderColor='#0d2d4a'" onblur="this.style.borderColor='#e2e8f0'">
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Excel -->
+    <div id="up-zone" onclick="document.getElementById('fi').click()" style="border:2px dashed #c8d4e0;border-radius:12px;padding:22px;cursor:pointer;transition:.2s;background:#f8fafc;margin-bottom:10px;text-align:center">
+      <div style="font-size:24px;margin-bottom:6px">📂</div>
+      <div style="font-size:13px;font-weight:600;color:#0d2d4a;margin-bottom:3px">Klik atau seret file Excel</div>
+      <div style="font-size:11px;color:#94a3b8">.xlsx · .xls · Semua sheet dibaca otomatis</div>
+    </div>
+    <input type="file" id="fi" accept=".xlsx,.xls" style="position:absolute;width:1px;height:1px;opacity:0">
+    <div id="up-sts" style="display:none;border-radius:7px;padding:9px 14px;font-size:12px;font-weight:600;margin-top:4px"></div>
+
+    <p style="font-size:11px;color:#94a3b8;margin-top:14px;text-align:center;line-height:1.6">Nama perusahaan dan periode bersifat opsional — bisa diisi atau dikosongkan</p>
+  </div>
+</div>
+
+<!-- DASHBOARD SCREEN -->
+<div id="dash-screen" style="display:none">
+<div class="topbar">
+  <div class="tb-brand">
+    <div class="tb-logo">📊</div>
+    <div>
+      <div class="tb-title">GHG Inventory Dashboard</div>
+      <div class="tb-sub">PT. _____________ · GRK Inventory</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span id="tb-active-filter" style="font-size:11px;opacity:.6;font-style:italic"></span>
+  </div>
+</div>
+
+<!-- GLOBAL FILTER BAR -->
+<div class="filterbar" id="filterbar">
+  <div class="fb-group">
+    <span class="fb-label">Scope</span>
+    <div id="fb-scope" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="fb-sep"></div>
+  <div class="fb-group">
+    <span class="fb-label">Sumber</span>
+    <div id="fb-src" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="fb-sep"></div>
+  <div class="fb-group">
+    <span class="fb-label">Tahun</span>
+    <div id="fb-year" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  </div>
+  <div class="fb-sep"></div>
+  <button class="btn-reset" id="btn-reset" onclick="resetFilter()">✕ Reset Filter</button>
+</div>
+
+<!-- TABS -->
+<div class="tabnav">
+  <div class="tab on"  onclick="goTab('overview',this)">📈 Overview</div>
+  <div class="tab" onclick="goTab('operasional',this)">⚙️ Operasional</div>
+  <div class="tab" onclick="goTab('emisi',this)">🌿 Emisi Detail</div>
+  <div class="tab" onclick="goTab('compare',this)">⚖️ Komparasi</div>
+  <div class="tab" onclick="goTab('tabel',this)">📋 Data Tabel</div>
+</div>
+
+<div class="main">
+
+<!-- ══ OVERVIEW ══ -->
+<div class="page on" id="page-overview">
+  <div id="ov-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px"></div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Tren Emisi Tahunan</div>
+      <div class="card-sub">tCO₂e per tahun — Scope 1 &amp; Scope 2</div>
+      <div class="ctrl">
+        <div class="seg" id="ov-trend-mode">
+          <button class="sb on" onclick="swSeg('ov-trend-mode',this);drawOvTrend()">Stacked</button>
+          <button class="sb" onclick="swSeg('ov-trend-mode',this);drawOvTrend()">Grouped</button>
+          <button class="sb" onclick="swSeg('ov-trend-mode',this);drawOvTrend()">Line</button>
+        </div>
+      </div>
+      <div class="ch h260"><canvas id="ch-ov-trend"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Komposisi Emisi per Sumber</div>
+      <div class="card-sub">Kontribusi tiap sumber — klik tahun untuk ganti</div>
+      <div class="ctrl" id="ov-pie-yr-ctrl"></div>
+      <div class="ch h220"><canvas id="ch-ov-pie"></canvas></div>
+      <div class="legend" id="leg-ov-pie"></div>
+    </div>
+  </div>
+  <div class="g3">
+    <div class="card">
+      <div class="card-title">Kontribusi Scope 1</div>
+      <div class="card-sub" id="ov-s1-sub">Emisi per sumber (tCO₂e)</div>
+      <div id="mb-s1" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Emisi Bulanan</div>
+      <div class="card-sub">Scope 1 vs Scope 2 (tCO₂e)</div>
+      <div class="ctrl" id="ov-mon-yr-ctrl"></div>
+      <div class="ch h180"><canvas id="ch-ov-monthly"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Perubahan YoY — Emisi</div>
+      <div class="card-sub" id="ov-yoy-sub">% perubahan emisi antar tahun</div>
+      <div class="ch h180"><canvas id="ch-ov-yoy"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OPERASIONAL ══ -->
+<div class="page" id="page-operasional">
+  
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">Data Aktivitas</div>
+    <div class="card-sub">Volume aktivitas per sumber — digunakan sebagai dasar perhitungan emisi.</div>
+    <div class="ctrl">
+      <span class="ctrl-lbl">Sumber:</span>
+      <select class="ctrl-sel" id="ops-src" onchange="drawOps()"></select>
+      <span class="ctrl-lbl" style="margin-left:8px">Tampilan:</span>
+      <div class="seg" id="ops-view">
+        <button class="sb on" onclick="swSeg('ops-view',this);drawOps()">Bulanan</button>
+        <button class="sb" onclick="swSeg('ops-view',this);drawOps()">Tahunan</button>
+      </div>
+      <span class="ctrl-lbl" style="margin-left:8px">Tahun:</span>
+      <div class="seg" id="ops-yr"></div>
+    </div>
+    <div class="ch h280"><canvas id="ch-ops-main"></canvas></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Perbandingan Konsumsi Tahunan</div>
+      <div class="card-sub">Top sumber per volume — diurutkan dari terbesar</div>
+      <div class="ch h220"><canvas id="ch-ops-annual"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Perubahan YoY — Konsumsi</div>
+      <div class="card-sub" id="ops-yoy-sub">% perubahan volume antar tahun</div>
+      <div class="ch h220"><canvas id="ch-ops-yoy"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EMISI DETAIL ══ -->
+<div class="page" id="page-emisi">
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">Emisi per Sumber per Tahun</div>
+    <div class="card-sub">tCO₂e — dipengaruhi filter global di atas</div>
+    <div class="ch h300"><canvas id="ch-em-bar"></canvas></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-title">Emisi Bulanan per Sumber</div>
+      <div class="card-sub">Pilih sumber dan tahun untuk detail bulanan</div>
+      <div class="ctrl">
+        <select class="ctrl-sel" id="em-mon-src" onchange="drawEmMonthly()"></select>
+        <div class="seg" id="em-mon-yr">
+          <button class="sb on" onclick="swSeg('em-mon-yr',this);drawEmMonthly()">Semua</button>
+        </div>
+      </div>
+      <div class="ch h240"><canvas id="ch-em-monthly"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Distribusi Scope per Tahun (%)</div>
+      <div class="card-sub">Komposisi Scope 1 vs Scope 2</div>
+      <div class="ch h240"><canvas id="ch-em-scope-pct"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ KOMPARASI ══ -->
+<div class="page" id="page-compare">
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">Komparasi Bebas</div>
+    <div class="card-sub">Pilih dua metrik untuk dibandingkan — dual axis, dipengaruhi filter global</div>
+    <div class="ctrl">
+      <select class="ctrl-sel" id="cmp-a" onchange="drawCompare()" style="min-width:200px"></select>
+      <span style="font-size:12px;font-weight:700;color:var(--text3);padding:0 4px">VS</span>
+      <select class="ctrl-sel" id="cmp-b" onchange="drawCompare()" style="min-width:200px"></select>
+      <div class="seg" id="cmp-yr">
+        <button class="sb" onclick="swSeg('cmp-yr',this);drawCompare()">2023</button>
+        <button class="sb" onclick="swSeg('cmp-yr',this);drawCompare()">2024</button>
+        <button class="sb on" onclick="swSeg('cmp-yr',this);drawCompare()">2025</button>
+        <button class="sb" onclick="swSeg('cmp-yr',this);drawCompare()">Semua</button>
+      </div>
+    </div>
+    <div class="g2" style="margin-bottom:12px">
+      <div class="ch h240"><canvas id="ch-cmp-a"></canvas></div>
+      <div class="ch h240"><canvas id="ch-cmp-b"></canvas></div>
+    </div>
+    <div class="ch h200"><canvas id="ch-cmp-overlay"></canvas></div>
+  </div>
+
+</div>
+
+<!-- ══ TABEL ══ -->
+<div class="page" id="page-tabel">
+  <div class="ctrl" style="margin-bottom:12px">
+    <span class="ctrl-lbl">Metrik:</span>
+    <div class="seg" id="tbl-type">
+      <button class="sb on" onclick="swSeg('tbl-type',this);drawTable()">Emisi (tCO₂e)</button>
+      <button class="sb" onclick="swSeg('tbl-type',this);drawTable()">Konsumsi</button>
+    </div>
+    <span class="ctrl-lbl" style="margin-left:8px">Granularitas:</span>
+    <div class="seg" id="tbl-gran">
+      <button class="sb on" onclick="swSeg('tbl-gran',this);drawTable()">Tahunan</button>
+      <button class="sb" onclick="swSeg('tbl-gran',this);drawTable()">Bulanan</button>
+    </div>
+  </div>
+  <div class="card" id="tbl-container"></div>
+</div>
+
+</div>
+
+<script>
+// Data populated after Excel upload
+var RAW_EM  = [];
+var RAW_ACT = [];
+var UNITS   = {};
+var ALL_YEARS  = [];
+var ALL_SCOPES = ['Scope 1','Scope 2']; // extended dynamically after parse
+var ALL_SRCS   = [];
+var MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+var SRC_COLORS = {
+  'Diesel':'#f59e0b','LPG':'#8b5cf6','National Grid (PLN)':'#3b82f6',
+  'Gasoline':'#10b981','Refrigerant R410A':'#ef4444','Refrigerant R32':'#06b6d4',
+  'Refrigerant R22':'#f97316','Refrigerant R134a':'#ec4899'
+};
+var YR_COLORS = {'2023':'#8b5cf6','2024':'#3b82f6','2025':'#10b981','2026':'#f59e0b','2027':'#ef4444'};
+</script>
+
+<script>
+// ══════════════════════════════════════════
+// GLOBAL FILTER STATE
+// ══════════════════════════════════════════
+var F = { scope:[], src:[], year:[] }; // empty = no filter = show all
+
+function isFiltered() {
+  return F.scope.length>0 || F.src.length>0 || F.year.length>0;
+}
+
+function matchFilter(row) {
+  if (F.scope.length>0 && F.scope.indexOf(row.scope)<0) return false;
+  if (F.src.length>0   && F.src.indexOf(row.src)<0)     return false;
+  if (F.year.length>0  && F.year.indexOf(row.year)<0)    return false;
+  return true;
+}
+
+function filterEM()  { return RAW_EM.filter(matchFilter); }
+function filterACT() {
+  return RAW_ACT.filter(function(r) {
+    if (F.src.length>0  && F.src.indexOf(r.src)<0)   return false;
+    if (F.year.length>0 && F.year.indexOf(r.year)<0) return false;
+    return true;
+  });
+}
+
+function activeYears() {
+  return F.year.length>0 ? F.year.slice().sort() : ALL_YEARS;
+}
+
+function activeSrcs(em) {
+  var rows = em || filterEM();
+  var s = {};
+  rows.forEach(function(r){s[r.src]=1;});
+  return ALL_SRCS.filter(function(x){return s[x];});
+}
+
+function activeScopes(em) {
+  var rows = em || filterEM();
+  var s = {};
+  rows.forEach(function(r){s[r.scope]=1;});
+  return ALL_SCOPES.filter(function(x){return s[x];});
+}
+
+// ══════════════════════════════════════════
+// FILTER UI
+// ══════════════════════════════════════════
+function toggleFilter(chip) {
+  var dim = chip.dataset.dim;
+  var val = chip.dataset.val;
+  var arr = F[dim];
+  var idx = arr.indexOf(val);
+  if (idx>=0) {
+    arr.splice(idx,1);
+    chip.className = 'filter-chip'; // remove active class
+  } else {
+    arr.push(val);
+    var cls = 'filter-chip ';
+    if (dim==='scope') cls += val==='Scope 1'?'active-s1':'active-s2';
+    else cls += dim==='year'?'active-yr':'active-src';
+    chip.className = cls;
+  }
+  syncLocalCtrls();
+  syncLocalCtrls();
+  updateFilterUI();
+  redrawAll();
+}
+
+function resetFilter() {
+  F.scope=[]; F.src=[]; F.year=[];
+  document.querySelectorAll('.filter-chip').forEach(function(c){
+    c.className='filter-chip';
+  });
+  syncLocalCtrls();
+  updateFilterUI();
+  redrawAll();
+}
+
+function syncLocalCtrls() {
+  var opsYrEl = document.getElementById('ops-yr');
+  if (!opsYrEl) return;
+  if (F.year.length === 1) {
+    // Exactly one year active: select that button
+    opsYrEl.querySelectorAll('.sb').forEach(function(b){
+      b.classList.toggle('on', b.textContent.trim() === F.year[0]);
+    });
+  } else {
+    // No filter or multi-year: select Semua
+    opsYrEl.querySelectorAll('.sb').forEach(function(b){ b.classList.remove('on'); });
+    var semua = opsYrEl.querySelector('.sb:last-child');
+    if (semua) semua.classList.add('on');
+  }
+}
+
+function updateFilterUI() {
+  var active = isFiltered();
+  document.getElementById('btn-reset').style.display = active?'inline-flex':'none';
+
+  // Build label
+  var parts=[];
+  if (F.scope.length) parts.push('Scope: '+F.scope.join(', '));
+  if (F.src.length)   parts.push('Sumber: '+F.src.map(function(s){return s.split(' ')[0];}).join(', '));
+  if (F.year.length)  parts.push('Tahun: '+F.year.join(', '));
+  var lbl = parts.join(' · ');
+  document.getElementById('tb-active-filter').textContent = active ? ('Filter aktif: '+lbl) : '';
+}
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+var _charts = {};
+function fmt(n,d){return Number(n).toLocaleString('id-ID',{minimumFractionDigits:d||0,maximumFractionDigits:d||0});}
+function fmtK(v){return v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'k':Number(v).toFixed(0);}
+
+function mkChart(id,cfg) {
+  var el=document.getElementById(id); if(!el)return null;
+  if(_charts[id]){_charts[id].destroy();}
+  hideEmpty(id);
+  Chart.defaults.font.family="'Inter',sans-serif"; Chart.defaults.color='#64748b';
+  _charts[id]=new Chart(el,cfg); return _charts[id];
+}
+function swSeg(id,btn) {
+  document.querySelectorAll('#'+id+' .sb').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+}
+function doSeg(btn) {
+  var id = btn.dataset.seg;
+  if (id) swSeg(id, btn);
+}
+function segVal(id) { var el=document.querySelector('#'+id+' .sb.on'); return el?el.textContent.trim():''; }
+
+function agg(rows, keyFn, valFn) {
+  var res={};
+  rows.forEach(function(r){
+    var k=keyFn(r); var v=valFn(r);
+    res[k]=(res[k]||0)+v;
+  });
+  return res;
+}
+
+function yoyPct(a,b) { return a>0?parseFloat(((b-a)/a*100).toFixed(1)):null; }
+
+// Sum Scope 2 emission without double-counting location+market based
+function sumS2(rows) {
+  var hasLoc = rows.some(function(r){ return r.scope==='Scope 2' && r.src.indexOf('[location-based]')>=0; });
+  return rows.filter(function(r){
+    if (r.scope !== 'Scope 2') return false;
+    if (hasLoc) return r.src.indexOf('[location-based]') >= 0; // prefer location-based
+    return true;
+  }).reduce(function(s,r){ return s+r.val; }, 0);
+}
+
+// Sum all emission, deduping Scope 2
+function sumTotal(rows) {
+  var s1 = rows.filter(function(r){ return r.scope==='Scope 1'; }).reduce(function(s,r){return s+r.val;},0);
+  return s1 + sumS2(rows);
+}
+function srcLabel(s) {
+  return s.replace('National Grid (PLN)','PLN').replace('Refrigerant ','')
+           .replace(' [location-based]','').replace(' [market-based]',' [mkt]');
+}
+
+function showEmpty(id,msg) {
+  var el=document.getElementById(id); if(!el) return;
+  if(_charts[id]){_charts[id].destroy();delete _charts[id];}
+  var wrap=el.parentElement;
+  var ov=wrap.querySelector('.ch-empty');
+  if(!ov){ov=document.createElement('div');ov.className='ch-empty';wrap.appendChild(ov);}
+  ov.textContent=msg||'Tidak ada data';ov.classList.add('show');
+}
+function hideEmpty(id) {
+  var el=document.getElementById(id); if(!el) return;
+  var ov=el.parentElement.querySelector('.ch-empty');
+  if(ov) ov.classList.remove('show');
+}
+
+function kpiCard(label,val,unit,yoy,color) {
+  var badge='';
+  if(yoy!==null&&yoy!==undefined){
+    var cls=yoy>0?'up-b':'dn-b'; var arrow=yoy>0?'↑':'↓';
+    badge='<div class="kpi-b '+cls+'">'+arrow+' '+Math.abs(yoy).toFixed(1)+'%</div>';
+  }
+  return '<div class="kpi" style="--c:'+color+'"><div class="kpi-l">'+label+'</div><div class="kpi-v">'+val+'</div><div class="kpi-u">'+unit+'</div>'+badge+'</div>';
+}
+
+function stdOpts(o){
+  o=o||{};
+  return {
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{position:'top',labels:{boxWidth:10,padding:10,font:{size:o.sf?10:11}}},
+      title:o.title?{display:true,text:o.title,font:{size:12,weight:'600'},color:'#0d2d4a',padding:{bottom:8}}:{display:false},
+      tooltip:{mode:o.mode||'index',intersect:false,callbacks:{label:function(c){
+        var v=c.raw; if(v===null||v===undefined)return;
+        return ' '+c.dataset.label+': '+(o.pct?v+'%':o.unit?fmt(v,0)+' '+o.unit:fmt(v,1)+(o.nounit?'':' tCO₂e'));
+      }}}
+    },
+    scales:{
+      x:{grid:{display:false},stacked:o.stacked||false,ticks:{font:{size:o.sf?9:10}}},
+      y:{grid:{color:'#f1f5f9'},stacked:o.stacked||false,
+        ticks:{callback:o.pct?function(v){return v+'%';}:fmtK,font:{size:o.sf?9:10}}}
+    }
+  };
+}
+
+function dualOpts(){
+  return {responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:11}}}},
+    scales:{x:{grid:{display:false}},
+      y:{grid:{color:'#f1f5f9'},position:'left',ticks:{callback:fmtK}},
+      y2:{grid:{display:false},position:'right',ticks:{callback:fmtK}}}};
+}
+
+// ══════════════════════════════════════════
+// REDRAW ALL — called on every filter change
+// ══════════════════════════════════════════
+function redrawAll() {
+  drawOvKpi();
+  drawOvTrend();
+  drawOvPie();
+  drawMbS1();
+  drawOvMonthly();
+  drawOvYoy();
+  if(_tabInited.operasional){ drawOps(); drawOpsAnnual(); drawOpsYoy(); }
+  if(_tabInited.emisi)      { drawEmBar(); drawEmMonthly(); drawEmScopePct(); }
+  if(_tabInited.compare)    { drawCompare(); drawCmpMonthly(); }
+  if(_tabInited.tabel)      drawTable();
+}
+
+// ══════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════
+var _tabInited = {};
+function goTab(id,el){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('on');});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
+  document.getElementById('page-'+id).classList.add('on');
+  el.classList.add('on');
+  if(!_tabInited[id]){
+    _tabInited[id]=true;
+    if(id==='operasional'){initOps();}
+    if(id==='emisi')      {initEmisi();}
+    if(id==='compare')    {initCompare();}
+    if(id==='tabel')      {drawTable();}
+  }
+}
+
+// ══════════════════════════════════════════
+// OVERVIEW
+// ══════════════════════════════════════════
+function drawOvKpi(){
+  var em=filterEM(); var fy=activeYears(); var ly=fy[fy.length-1]; var py=fy.length>=2?fy[fy.length-2]:null;
+  var lyEm=em.filter(function(r){return r.year===ly;});
+  var s1=lyEm.filter(function(r){return r.scope==='Scope 1';}).reduce(function(s,r){return s+r.val;},0);
+  var s2=sumS2(lyEm); // location-based only, no double-count
+  var tot=s1+s2||1;
+  var pyTot=py?sumTotal(em.filter(function(r){return r.year===py;})):null;
+  var yoyTot=pyTot?yoyPct(pyTot,tot):null;
+  var lyS1prev=py?em.filter(function(r){return r.year===py&&r.scope==='Scope 1';}).reduce(function(s,r){return s+r.val;},0):null;
+  // Scope 2 location-based
+  var s2loc=lyEm.filter(function(r){return r.src.indexOf('[location-based]')>=0;}).reduce(function(s,r){return s+r.val;},0);
+  var s2locPrev=py?em.filter(function(r){return r.year===py&&r.src.indexOf('[location-based]')>=0;}).reduce(function(s,r){return s+r.val;},0):null;
+  // Scope 2 market-based
+  var s2mkt=lyEm.filter(function(r){return r.src.indexOf('[market-based]')>=0;}).reduce(function(s,r){return s+r.val;},0);
+  var s2mktPrev=py?em.filter(function(r){return r.year===py&&r.src.indexOf('[market-based]')>=0;}).reduce(function(s,r){return s+r.val;},0):null;
+  // If no method distinction exists, fall back to generic Scope 2
+  var hasMethod=lyEm.some(function(r){return r.src.indexOf('[location-based]')>=0||r.src.indexOf('[market-based]')>=0;});
+  var s2lyS2prev=py?sumS2(em.filter(function(r){return r.year===py;})):null;
+  // Scope 3
+  var s3=em.filter(function(r){return r.year===ly&&r.scope==='Scope 3';}).reduce(function(s,r){return s+r.val;},0);
+  var cards=[
+    kpiCard('Total Emisi '+ly, fmt(tot/1000,2), 'ktCO₂e', yoyTot, '#0d2d4a'),
+    kpiCard('Scope 1', fmt(s1,0), 'tCO₂e · '+(s1/tot*100).toFixed(1)+'%', lyS1prev?yoyPct(lyS1prev,s1):null, '#f59e0b'),
+  ];
+  if(hasMethod){
+    cards.push(kpiCard('Scope 2 — Location', s2loc>0?fmt(s2loc,0):'—', 'tCO₂e · '+(s2loc/(s1+s2loc||1)*100).toFixed(1)+'% dari total', s2locPrev?yoyPct(s2locPrev,s2loc):null, '#3b82f6'));
+    cards.push(kpiCard('Scope 2 — Market', s2mkt>0?fmt(s2mkt,0):'—', s2mkt>0?'tCO₂e (market-based)':'—', s2mktPrev?yoyPct(s2mktPrev,s2mkt):null, '#0ea5e9'));
+  } else {
+    cards.push(kpiCard('Scope 2', fmt(s2,0), 'tCO₂e · '+(s2/tot*100).toFixed(1)+'%', s2lyS2prev?yoyPct(s2lyS2prev,s2):null, '#3b82f6'));
+  }
+  var s3prev=py?em.filter(function(r){return r.year===py&&r.scope==='Scope 3';}).reduce(function(s,r){return s+r.val;},0):null;
+  var yoyS3=(s3>0&&s3prev&&s3prev>0)?yoyPct(s3prev,s3):null;
+  cards.push(kpiCard('Scope 3', s3>0?fmt(s3,1):'—', s3>0?'tCO₂e':'Belum ada data', yoyS3, '#8b5cf6'));
+  cards.push(kpiCard('Tahun Laporan', ly, fy.length+' tahun data', null, '#10b981'));
+  document.getElementById('ov-kpi').innerHTML=cards.join('');
+}
+
+function drawOvTrend(){
+  var em=filterEM(); var fy=activeYears(); var mode=segVal('ov-trend-mode');
+  var scopes=activeScopes(em);
+  var scopeColors={'Scope 1':'#f59e0b','Scope 2':'#3b82f6'};
+  var datasets=scopes.map(function(sc){
+    return {label:sc,data:fy.map(function(y){ var yRows=em.filter(function(r){return r.year===y;}); return sc==='Scope 2'?sumS2(yRows):yRows.filter(function(r){return r.scope===sc;}).reduce(function(s,r){return s+r.val;},0); }),
+      backgroundColor:scopeColors[sc],borderColor:scopeColors[sc],borderRadius:3,
+      tension:.35,fill:mode==='Line'?false:undefined,
+      pointRadius:mode==='Line'?5:0,pointBackgroundColor:scopeColors[sc],pointBorderColor:'#fff',pointBorderWidth:2,
+      stack:mode==='Stacked'?'s':undefined};
+  });
+  var type=mode==='Line'?'line':'bar';
+  mkChart('ch-ov-trend',{type:type,data:{labels:fy,datasets:datasets},options:stdOpts({stacked:mode==='Stacked',mode:'index'})});
+}
+
+function drawOvPie(){
+  var yr=segVal('ov-pie-yr-seg')||ALL_YEARS[ALL_YEARS.length-1];
+  var em=filterEM().filter(function(r){return r.year===yr;});
+  // Exclude market-based from donut — only show location-based for Scope 2
+  var emFiltered=em.filter(function(r){ return r.src.indexOf('[market-based]')<0; });
+  var byS=agg(emFiltered,function(r){return r.src;},function(r){return r.val;});
+  var labels=[],vals=[],colors=[];
+  ALL_SRCS.filter(function(s){ return s.indexOf('[market-based]')<0; })
+    .forEach(function(s){if(byS[s]>0){labels.push(s);vals.push(byS[s]);colors.push(SRC_COLORS[s]||'#94a3b8');}});
+  var tot=vals.reduce(function(a,b){return a+b;},0)||1;
+  if(!labels.length){mkChart('ch-ov-pie',{type:'doughnut',data:{labels:['Tidak ada data'],datasets:[{data:[1],backgroundColor:['#e2e8f0']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});return;}
+  mkChart('ch-ov-pie',{type:'doughnut',data:{labels:labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:2,borderColor:'#fff',hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:function(c){return ' '+c.label+': '+fmt(c.raw,0)+' tCO₂e ('+(c.raw/tot*100).toFixed(1)+'%)';}}}}
+    }});
+  document.getElementById('leg-ov-pie').innerHTML=labels.map(function(l,i){
+    var disp=l.replace('National Grid (PLN)','PLN').replace('Refrigerant ','')
+               .replace(' [location-based]','').replace(' [market-based]','');
+    return '<div class="leg-i"><div class="leg-d" style="background:'+colors[i]+'"></div><span>'+disp+'</span></div>';
+  }).join('');
+}
+
+function drawMbS1(){
+  var fy=activeYears(); var ly=fy[fy.length-1];
+  var em=filterEM().filter(function(r){return r.year===ly&&r.scope==='Scope 1';});
+  var byS=agg(em,function(r){return r.src;},function(r){return r.val;});
+  var srcs=ALL_SRCS.filter(function(s){return byS[s]>0;});
+  var max=Math.max.apply(null,srcs.map(function(s){return byS[s]||0;}))||1;
+  document.getElementById('ov-s1-sub').textContent='Emisi Scope 1 tahun '+ly+' (tCO₂e)';
+  if(!srcs.length){document.getElementById('mb-s1').innerHTML='<div class="empty">Tidak ada data Scope 1</div>';return;}
+  document.getElementById('mb-s1').innerHTML=srcs.map(function(s){
+    var v=byS[s]||0; var lbl=s.replace('Refrigerant ','').replace('National Grid (PLN)','PLN');
+    return '<div class="mb-row"><div class="mb-lbl">'+lbl+'</div><div class="mb-track"><div class="mb-fill" style="width:'+(v/max*100).toFixed(0)+'%;background:'+SRC_COLORS[s]+'"></div></div><div class="mb-val">'+fmt(v,1)+'</div></div>';
+  }).join('');
+}
+
+function drawOvMonthly(){
+  var yr=segVal('ov-mon-yr-seg')||ALL_YEARS[ALL_YEARS.length-1];
+  var em=filterEM().filter(function(r){return r.year===yr&&r.mon>0;});
+  var s1m=new Array(12).fill(0); var s2m=new Array(12).fill(0);
+  em.forEach(function(r){
+    if(r.scope==='Scope 1') s1m[r.mon-1]+=r.val;
+    // Only count location-based for monthly Scope 2 to avoid double-count
+    if(r.scope==='Scope 2') {
+      var _hasLoc=em.some(function(x){return x.year===yr&&x.scope==='Scope 2'&&x.src.indexOf('[location-based]')>=0;});
+      if(!_hasLoc || r.src.indexOf('[location-based]')>=0) s2m[r.mon-1]+=r.val;
+    }
+  });
+  var hasS1=s1m.some(function(v){return v>0;}); var hasS2=s2m.some(function(v){return v>0;});
+  var ds=[];
+  if(hasS1) ds.push({label:'Scope 1',data:s1m.map(function(v){return parseFloat(v.toFixed(1));}),backgroundColor:'#f59e0b',stack:'s',borderRadius:2});
+  if(hasS2) ds.push({label:'Scope 2',data:s2m.map(function(v){return parseFloat(v.toFixed(1));}),backgroundColor:'#3b82f6',stack:'s',borderRadius:2});
+  mkChart('ch-ov-monthly',{type:'bar',data:{labels:MONTHS,datasets:ds},options:stdOpts({stacked:true,mode:'index',sf:true})});
+}
+
+function drawOvYoy(){
+  var em=filterEM(); var fy=activeYears();
+  if(fy.length<2){showEmpty('ch-ov-yoy','Data minimal 2 tahun untuk YoY');return;}
+  var srcs=activeSrcs(em).filter(function(s){return s.indexOf('[market-based]')<0;});
+  var datasets=[];
+  for(var i=1;i<fy.length;i++){
+    var py=fy[i-1]; var cy=fy[i];
+    datasets.push({
+      label:py+'→'+cy,
+      data:srcs.map(function(s){
+        var a=em.filter(function(r){return r.year===py&&r.src===s;}).reduce(function(s,r){return s+r.val;},0);
+        var b=em.filter(function(r){return r.year===cy&&r.src===s;}).reduce(function(s,r){return s+r.val;},0);
+        return a>0?parseFloat(((b-a)/a*100).toFixed(1)):null;
+      }),
+      backgroundColor:YR_COLORS[cy]||'#94a3b8',borderRadius:3
+    });
+  }
+  document.getElementById('ov-yoy-sub').textContent='% perubahan emisi (tCO₂e) per sumber';
+  var labels=srcs.map(function(s){return s.replace('Refrigerant ','').replace('National Grid (PLN)','PLN');});
+  mkChart('ch-ov-yoy',{type:'bar',data:{labels:labels,datasets:datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10}}},
+        tooltip:{mode:'index',callbacks:{label:function(c){return c.raw!==null?' '+c.dataset.label+': '+(c.raw>0?'+':'')+c.raw+'%':null;}}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:9}}},
+        y:{grid:{color:'#f1f5f9'},ticks:{callback:function(v){return (v>0?'+':'')+v+'%';},font:{size:9}}}}}});
+}
+
+// ══════════════════════════════════════════
+// OPERASIONAL
+// ══════════════════════════════════════════
+function initOps(){
+  var srcs=Object.keys(UNITS).filter(function(s){return RAW_ACT.some(function(r){return r.src===s;});});
+  var el=document.getElementById('ops-src');
+  el.innerHTML=srcs.map(function(s){return '<option value="'+s+'">'+s+' ('+UNITS[s]+')</option>';}).join('');
+  // Build year buttons dynamically from ALL_YEARS
+  var yrEl=document.getElementById('ops-yr');
+  if(yrEl){
+    yrEl.innerHTML=ALL_YEARS.map(function(y){
+      return '<button class="sb" data-seg="ops-yr" onclick="doSeg(this);drawOps()">'+y+'</button>';
+    }).join('')+'<button class="sb on" data-seg="ops-yr" onclick="doSeg(this);drawOps()">Semua</button>';
+  }
+  drawOps(); drawOpsAnnual(); drawOpsYoy();
+}
+
+function drawOpsKpi(){
+  var act=filterACT(); var fy=activeYears(); var ly=fy[fy.length-1]; var py=fy.length>=2?fy[fy.length-2]:null;
+  // Get all sources with data, rank by volume in latest year (materiality)
+  var allSrcs=Object.keys(UNITS).filter(function(s){
+    return act.some(function(r){return r.src===s&&r.year===ly;});
+  });
+  allSrcs.sort(function(a,b){
+    var va=act.filter(function(r){return r.src===a&&r.year===ly;}).reduce(function(s,r){return s+r.qty;},0);
+    var vb=act.filter(function(r){return r.src===b&&r.year===ly;}).reduce(function(s,r){return s+r.qty;},0);
+    return vb-va;
+  });
+  // Top 4 by volume = most material
+  var topSrcs=allSrcs.slice(0,4);
+  var colorPool=['#3b82f6','#f59e0b','#8b5cf6','#10b981','#ef4444','#06b6d4'];
+  document.getElementById('ops-kpi').innerHTML=topSrcs.map(function(s,i){
+    var v=act.filter(function(r){return r.src===s&&r.year===ly;}).reduce(function(ss,r){return ss+r.qty;},0);
+    var pv=py?act.filter(function(r){return r.src===s&&r.year===py;}).reduce(function(ss,r){return ss+r.qty;},0):null;
+    var label=s.replace('National Grid (PLN)','PLN Listrik').replace('Refrigerant ','Ref. ')+' '+ly;
+    return kpiCard(label, fmtK(v), UNITS[s]||'unit', pv?yoyPct(pv,v):null, colorPool[i]);
+  }).join('');
+}
+
+function drawOps(){
+  var src=document.getElementById('ops-src')?document.getElementById('ops-src').value:'';
+  if(!src) return;
+  var view=segVal('ops-view'); var yr=segVal('ops-yr');
+  var act=filterACT().filter(function(r){return r.src===src;});
+  var color=SRC_COLORS[src]||'#3b82f6';
+  if(view==='Bulanan'){
+    // Global filter takes priority over local seg
+    var years=(F.year.length>0)?activeYears():(yr==='Semua'?activeYears():[yr]);
+    var datasets=years.map(function(y){
+      var d=new Array(12).fill(0);
+      act.filter(function(r){return r.year===y&&r.mon>0;}).forEach(function(r){d[r.mon-1]+=r.qty;});
+      return {label:y,data:d.map(function(v){return parseFloat(v.toFixed(1));}),borderColor:YR_COLORS[y]||color,backgroundColor:(YR_COLORS[y]||color)+'22',tension:.35,fill:years.length===1,pointRadius:4,pointBackgroundColor:YR_COLORS[y]||color,pointBorderColor:'#fff',pointBorderWidth:2};
+    });
+    mkChart('ch-ops-main',{type:'line',data:{labels:MONTHS,datasets:datasets},options:stdOpts({unit:UNITS[src]||'unit',nounit:false,sf:true})});
+  } else {
+    var fy=activeYears();
+    var vals=fy.map(function(y){return act.filter(function(r){return r.year===y;}).reduce(function(s,r){return s+r.qty;},0);});
+    mkChart('ch-ops-main',{type:'bar',data:{labels:fy,datasets:[{label:src,data:vals,backgroundColor:fy.map(function(y){return YR_COLORS[y]||color;}),borderRadius:5}]},options:stdOpts({unit:UNITS[src]||'unit',nounit:false})});
+  }
+}
+
+function drawOpsAnnual(){
+  var act=filterACT(); var fy=activeYears(); var ly=fy[fy.length-1];
+  // Dynamic: get all sources with activity data, ranked by total volume in latest year
+  var allSrcs=Object.keys(UNITS).filter(function(s){
+    return act.some(function(r){return r.src===s;});
+  });
+  // Rank by volume in latest year, take top 6
+  allSrcs.sort(function(a,b){
+    var va=act.filter(function(r){return r.src===a&&r.year===ly;}).reduce(function(s,r){return s+r.qty;},0);
+    var vb=act.filter(function(r){return r.src===b&&r.year===ly;}).reduce(function(s,r){return s+r.qty;},0);
+    return vb-va;
+  });
+  var srcs=allSrcs.slice(0,6);
+  var labels=srcs.map(function(s){return s.replace('National Grid (PLN)','PLN').replace('Refrigerant ','');});
+  var datasets=fy.map(function(yr){
+    return {label:yr,data:srcs.map(function(s){return act.filter(function(r){return r.src===s&&r.year===yr;}).reduce(function(ss,r){return ss+r.qty;},0);}),backgroundColor:YR_COLORS[yr]||'#94a3b8',borderRadius:3};
+  });
+  mkChart('ch-ops-annual',{type:'bar',data:{labels:labels,datasets:datasets},options:stdOpts({nounit:true,mode:'index'})});
+}
+
+function drawOpsYoy(){
+  var act=filterACT(); var fy=activeYears();
+  if(fy.length<2){showEmpty('ch-ops-yoy','Data minimal 2 tahun untuk YoY');return;}
+  // Dynamic: all sources with data in at least one year
+  var ly=fy[fy.length-1];
+  var opsSrcs=Object.keys(UNITS).filter(function(s){
+    return act.some(function(r){return r.src===s;});
+  }).sort(function(a,b){
+    var va=act.filter(function(r){return r.src===a&&r.year===ly;}).reduce(function(s,r){return s+r.qty;},0);
+    var vb=act.filter(function(r){return r.src===b&&r.year===ly;}).reduce(function(s,r){return s+r.qty;},0);
+    return vb-va;
+  }).slice(0,6);
+  var datasets=[];
+  for(var i=1;i<fy.length;i++){
+    var py=fy[i-1]; var cy=fy[i];
+    datasets.push({
+      label:py+'→'+cy,
+      data:opsSrcs.map(function(s){
+        var a=act.filter(function(r){return r.src===s&&r.year===py;}).reduce(function(ss,r){return ss+r.qty;},0);
+        var b=act.filter(function(r){return r.src===s&&r.year===cy;}).reduce(function(ss,r){return ss+r.qty;},0);
+        return a>0?parseFloat(((b-a)/a*100).toFixed(1)):null;
+      }),
+      backgroundColor:YR_COLORS[cy]||'#94a3b8',borderRadius:3
+    });
+  }
+  document.getElementById('ops-yoy-sub').textContent='% perubahan volume konsumsi per sumber';
+  mkChart('ch-ops-yoy',{type:'bar',data:{labels:opsSrcs.map(function(s){return s.replace('National Grid (PLN)','PLN').replace('Refrigerant ','');}),datasets:datasets},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10}}},tooltip:{mode:'index',callbacks:{label:function(c){return c.raw!==null?' '+c.dataset.label+': '+(c.raw>0?'+':'')+c.raw+'%':null;}}}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:'#f1f5f9'},ticks:{callback:function(v){return (v>0?'+':'')+v+'%';}}}}}});
+}
+
+// ══════════════════════════════════════════
+// EMISI DETAIL
+// ══════════════════════════════════════════
+function initEmisi(){
+  var em=filterEM();
+  var srcs=activeSrcs(em);
+  var el=document.getElementById('em-mon-src');
+  el.innerHTML=srcs.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+  var yrSeg=document.getElementById('em-mon-yr');
+  yrSeg.innerHTML='<button class="sb on" data-seg="em-mon-yr" onclick="doSeg(this);drawEmMonthly()">Semua</button>'+ALL_YEARS.map(function(y){return '<button class="sb" data-seg="em-mon-yr" onclick="doSeg(this);drawEmMonthly()">'+y+'</button>';}).join('');
+  drawEmBar(); drawEmMonthly(); drawEmScopePct();
+}
+
+function drawEmBar(){
+  var em=filterEM().filter(function(r){return r.src.indexOf('[market-based]')<0;}); var fy=activeYears(); var srcs=activeSrcs(em);
+  if(!srcs.length){mkChart('ch-em-bar',{type:'bar',data:{labels:['Tidak ada data'],datasets:[{data:[0],backgroundColor:'#e2e8f0'}]},options:stdOpts()});return;}
+  var datasets=fy.map(function(yr){
+    return {label:yr,data:srcs.map(function(s){return em.filter(function(r){return r.year===yr&&r.src===s;}).reduce(function(ss,r){return ss+r.val;},0);}),backgroundColor:YR_COLORS[yr]||'#94a3b8',borderRadius:3};
+  });
+  mkChart('ch-em-bar',{type:'bar',data:{labels:srcs.map(function(s){return s.replace('National Grid (PLN)','PLN').replace('Refrigerant ','');}),datasets:datasets},options:stdOpts({mode:'index'})});
+}
+
+function drawEmMonthly(){
+  var em=filterEM(); var src=document.getElementById('em-mon-src')?document.getElementById('em-mon-src').value:'';
+  if(!src){src=activeSrcs(em)[0]||'';}
+  var yr=segVal('em-mon-yr');
+  var rows=em.filter(function(r){return r.src===src&&r.mon>0;});
+  var datasets=[];
+  // If global year filter active, override local seg
+  var useAllYears=(F.year.length>0)||yr==='Semua';
+  if(useAllYears){
+    activeYears().forEach(function(y){
+      var d=new Array(12).fill(0);
+      rows.filter(function(r){return r.year===y;}).forEach(function(r){d[r.mon-1]+=r.val;});
+      datasets.push({label:y,data:d.map(function(v){return parseFloat(v.toFixed(1));}),borderColor:YR_COLORS[y]||'#94a3b8',backgroundColor:(YR_COLORS[y]||'#94a3b8')+'22',tension:.35,fill:false,pointRadius:3});
+    });
+  } else {
+    var d=new Array(12).fill(0);
+    rows.filter(function(r){return r.year===yr;}).forEach(function(r){d[r.mon-1]+=r.val;});
+    var color=SRC_COLORS[src]||'#3b82f6';
+    datasets.push({label:src+' '+yr,data:d.map(function(v){return parseFloat(v.toFixed(1));}),borderColor:color,backgroundColor:color+'22',tension:.35,fill:true,pointRadius:4,pointBackgroundColor:color,pointBorderColor:'#fff',pointBorderWidth:2});
+  }
+  mkChart('ch-em-monthly',{type:'line',data:{labels:MONTHS,datasets:datasets},options:stdOpts({sf:true})});
+}
+
+function drawEmScopePct(){
+  var em=filterEM(); var fy=activeYears();
+  var s1d=fy.map(function(y){return em.filter(function(r){return r.year===y&&r.scope==='Scope 1';}).reduce(function(s,r){return s+r.val;},0);});
+  var s2d=fy.map(function(y){ return sumS2(em.filter(function(r){return r.year===y;})); });
+  var pct1=s1d.map(function(v,i){var t=(s1d[i]+s2d[i])||1;return parseFloat((v/t*100).toFixed(1));});
+  var pct2=pct1.map(function(v){return parseFloat((100-v).toFixed(1));});
+  mkChart('ch-em-scope-pct',{type:'bar',data:{labels:fy,datasets:[
+    {label:'Scope 1 %',data:pct1,backgroundColor:'#f59e0b',stack:'s'},
+    {label:'Scope 2 %',data:pct2,backgroundColor:'#3b82f6',stack:'s'}
+  ]},options:stdOpts({stacked:true,mode:'index',pct:true})});
+}
+
+// ══════════════════════════════════════════
+// KOMPARASI
+// ══════════════════════════════════════════
+function initCompare(){
+  var em=filterEM();
+  var srcs=activeSrcs(em);
+  var actSrcs=Object.keys(UNITS).filter(function(s){return RAW_ACT.some(function(r){return r.src===s;});});
+  var optsHtml='<optgroup label="EMISI (tCO₂e)">';
+  srcs.forEach(function(s){optsHtml+='<option value="em|'+s+'">Emisi: '+s.replace('National Grid (PLN)','PLN')+'</option>';});
+  optsHtml+='<option value="em|TOTAL_S1">Total Scope 1</option><option value="em|TOTAL_S2">Total Scope 2</option>';
+  optsHtml+='</optgroup><optgroup label="KONSUMSI">';
+  actSrcs.forEach(function(s){optsHtml+='<option value="op|'+s+'">Konsumsi: '+s.replace('National Grid (PLN)','PLN')+' ('+UNITS[s]+')</option>';});
+  optsHtml+='</optgroup>';
+  document.getElementById('cmp-a').innerHTML=optsHtml;
+  document.getElementById('cmp-b').innerHTML=optsHtml;
+  // Different defaults
+  var bOpts=document.getElementById('cmp-b').options;
+  for(var i=0;i<bOpts.length;i++){if(bOpts[i].value.indexOf('op|')>=0){bOpts[i].selected=true;break;}}
+  var yrSeg=document.getElementById('cmp-yr');
+  yrSeg.innerHTML=ALL_YEARS.map(function(y,i){
+    return '<button class="sb'+(i===ALL_YEARS.length-1?' on':'')+'" data-seg="cmp-yr" onclick="doSeg(this);drawCompare()">'+y+'</button>';
+  }).join('')+'<button class="sb" data-seg="cmp-yr" onclick="doSeg(this);drawCompare()">Semua</button>';
+  var monYr=document.getElementById('cmp-mon-yr');
+  monYr.innerHTML=ALL_YEARS.map(function(y,i){return '<option'+(i===ALL_YEARS.length-1?' selected':'')+'>'+y+'</option>';}).join('');
+  drawCompare(); drawCmpMonthly();
+}
+
+function getCmpData(key,yr){
+  var p=key.split('|'); var type=p[0]; var name=p[1];
+  var em=filterEM(); var act=filterACT();
+  var years=yr==='Semua'?activeYears():[yr];
+  if(yr==='Semua'){
+    return activeYears().map(function(y){
+      if(type==='em'){
+        if(name==='TOTAL_S1') return em.filter(function(r){return r.year===y&&r.scope==='Scope 1';}).reduce(function(s,r){return s+r.val;},0);
+        if(name==='TOTAL_S2') return em.filter(function(r){return r.year===y&&r.scope==='Scope 2';}).reduce(function(s,r){return s+r.val;},0);
+        return em.filter(function(r){return r.year===y&&r.src===name;}).reduce(function(s,r){return s+r.val;},0);
+      } else {
+        return act.filter(function(r){return r.year===y&&r.src===name;}).reduce(function(s,r){return s+r.qty;},0);
+      }
+    });
+  } else {
+    var d=new Array(12).fill(0);
+    if(type==='em'){
+      var rows=em.filter(function(r){return r.year===yr&&r.mon>0&&(name==='TOTAL_S1'?r.scope==='Scope 1':name==='TOTAL_S2'?r.scope==='Scope 2':r.src===name);});
+      rows.forEach(function(r){d[r.mon-1]+=r.val;});
+    } else {
+      act.filter(function(r){return r.year===yr&&r.src===name&&r.mon>0;}).forEach(function(r){d[r.mon-1]+=r.qty;});
+    }
+    return d.map(function(v){return parseFloat(v.toFixed(1));});
+  }
+}
+
+function cmpLabel(key){var p=key.split('|');return (p[0]==='em'?'Emisi ':'Konsumsi ')+p[1].replace('National Grid (PLN)','PLN').replace('TOTAL_S1','Scope 1').replace('TOTAL_S2','Scope 2');}
+
+function drawCompare(){
+  var ka=document.getElementById('cmp-a')?document.getElementById('cmp-a').value:'';
+  var kb=document.getElementById('cmp-b')?document.getElementById('cmp-b').value:'';
+  if(!ka||!kb)return;
+  // Global year filter takes priority over local cmp-yr seg
+  var yr=(F.year.length===1)?F.year[0]:(F.year.length>1?'Semua':segVal('cmp-yr'));
+  var la=cmpLabel(ka); var lb=cmpLabel(kb);
+  var da=getCmpData(ka,yr); var db=getCmpData(kb,yr);
+  var labels=yr==='Semua'?activeYears():MONTHS;
+  var ca='#3b82f6'; var cb='#f59e0b';
+  mkChart('ch-cmp-a',{type:yr==='Semua'?'bar':'line',data:{labels:labels,datasets:[{label:la,data:da,backgroundColor:yr==='Semua'?activeYears().map(function(y){return YR_COLORS[y];}):ca,borderColor:ca,backgroundColor:ca+'22',tension:.35,fill:yr!=='Semua',borderRadius:4,pointRadius:3}]},options:stdOpts({title:la,sf:true,nounit:true})});
+  mkChart('ch-cmp-b',{type:yr==='Semua'?'bar':'line',data:{labels:labels,datasets:[{label:lb,data:db,backgroundColor:yr==='Semua'?activeYears().map(function(y){return YR_COLORS[y];}):cb,borderColor:cb,backgroundColor:cb+'22',tension:.35,fill:yr!=='Semua',borderRadius:4,pointRadius:3}]},options:stdOpts({title:lb,sf:true,nounit:true})});
+  mkChart('ch-cmp-overlay',{type:'line',data:{labels:labels,datasets:[
+    {label:la,data:da,borderColor:ca,backgroundColor:ca+'22',yAxisID:'y',tension:.35,fill:false,pointRadius:3,pointBackgroundColor:ca,pointBorderColor:'#fff',pointBorderWidth:2},
+    {label:lb,data:db,borderColor:cb,backgroundColor:cb+'22',yAxisID:'y2',tension:.35,fill:false,pointRadius:3,pointBackgroundColor:cb,pointBorderColor:'#fff',pointBorderWidth:2}
+  ]},options:dualOpts()});
+}
+
+function drawCmpMonthly(){
+  var em=filterEM(); var act=filterACT();
+  var metric=segVal('cmp-metric'); var yr=document.getElementById('cmp-mon-yr')?document.getElementById('cmp-mon-yr').value:ALL_YEARS[ALL_YEARS.length-1];
+  // Source list depends on metric: emisi → from RAW_EM, konsumsi → from RAW_ACT
+  var srcs;
+  if(metric==='Emisi'){
+    srcs=activeSrcs(em).filter(function(s){return s.indexOf('[market-based]')<0;}).slice(0,6);
+  } else {
+    // Get all sources present in activity data for this year, ranked by volume
+    var actSrcSet={};
+    act.filter(function(r){return r.year===yr;}).forEach(function(r){
+      actSrcSet[r.src]=(actSrcSet[r.src]||0)+r.qty;
+    });
+    srcs=Object.keys(actSrcSet).sort(function(a,b){return actSrcSet[b]-actSrcSet[a];}).slice(0,6);
+  }
+  var datasets=srcs.map(function(src){
+    var d=new Array(12).fill(0);
+    if(metric==='Emisi'){
+      em.filter(function(r){return r.src===src&&r.year===yr&&r.mon>0;}).forEach(function(r){d[r.mon-1]+=r.val;});
+    } else {
+      act.filter(function(r){return r.src===src&&r.year===yr&&r.mon>0;}).forEach(function(r){d[r.mon-1]+=r.qty;});
+    }
+    return {label:src.replace('National Grid (PLN)','PLN').replace('Refrigerant ',''),data:d.map(function(v){return parseFloat(v.toFixed(1));}),borderColor:SRC_COLORS[src]||'#94a3b8',backgroundColor:'transparent',tension:.35,fill:false,pointRadius:3};
+  });
+  mkChart('ch-cmp-monthly',{type:'line',data:{labels:MONTHS,datasets:datasets},options:stdOpts({sf:true,nounit:true})});
+}
+
+// ══════════════════════════════════════════
+// TABEL
+// ══════════════════════════════════════════
+function drawTable(){
+  var type=segVal('tbl-type'); var gran=segVal('tbl-gran');
+  var em=filterEM(); var act=filterACT(); var fy=activeYears();
+  var srcs=activeSrcs(em);
+  var html='';
+  if(gran==='Tahunan'){
+    html='<div class="tbl-wrap"><table><thead><tr><th onclick="sortTbl(this,0)">Sumber</th><th onclick="sortTbl(this,1)">Scope</th>';
+    fy.forEach(function(y){html+='<th class="nr" onclick="sortTbl(this,-1)">'+y+'</th>';});
+    html+='<th class="nr" onclick="sortTbl(this,-1)">Total</th></tr></thead><tbody>';
+    srcs.forEach(function(src){
+      var scope=src==='National Grid (PLN)'?'Scope 2':'Scope 1';
+      var vals=fy.map(function(y){
+        return type.indexOf('Emisi')>=0?em.filter(function(r){return r.src===src&&r.year===y;}).reduce(function(s,r){return s+r.val;},0):act.filter(function(r){return r.src===src&&r.year===y;}).reduce(function(s,r){return s+r.qty;},0);
+      });
+      var tot=vals.reduce(function(a,b){return a+b;},0);
+      html+='<tr><td>'+src+'</td><td><span class="tag '+(scope==='Scope 1'?'t-s1':'t-s2')+'">'+scope+'</span></td>';
+      vals.forEach(function(v){html+='<td class="nr">'+(v>0?fmt(v,1):'—')+'</td>';});
+      html+='<td class="nr"><strong>'+fmt(tot,1)+'</strong></td></tr>';
+    });
+    // Total row
+    html+='<tr class="tr-tot"><td colspan="2">TOTAL</td>';
+    fy.forEach(function(y){
+      var t=srcs.reduce(function(s,src){return s+(type.indexOf('Emisi')>=0?em.filter(function(r){return r.src===src&&r.year===y;}).reduce(function(ss,r){return ss+r.val;},0):act.filter(function(r){return r.src===src&&r.year===y;}).reduce(function(ss,r){return ss+r.qty;},0));},0);
+      html+='<td class="nr">'+fmt(t,1)+'</td>';
+    });
+    html+='<td class="nr">—</td></tr></tbody></table></div>';
+  } else {
+    html='<div class="tbl-wrap" style="max-height:500px"><table><thead><tr><th>Sumber</th><th>Tahun</th>';
+    MONTHS.forEach(function(m){html+='<th class="nr">'+m+'</th>';});
+    html+='<th class="nr">Total</th></tr></thead><tbody>';
+    srcs.forEach(function(src){
+      fy.forEach(function(yr){
+        var d=new Array(12).fill(0);
+        if(type.indexOf('Emisi')>=0){
+          em.filter(function(r){return r.src===src&&r.year===yr&&r.mon>0;}).forEach(function(r){d[r.mon-1]+=r.val;});
+        } else {
+          act.filter(function(r){return r.src===src&&r.year===yr&&r.mon>0;}).forEach(function(r){d[r.mon-1]+=r.qty;});
+        }
+        var tot=d.reduce(function(a,b){return a+b;},0);
+        if(tot===0)return;
+        html+='<tr><td>'+src+'</td><td>'+yr+'</td>';
+        d.forEach(function(v){html+='<td class="nr">'+(v>0?fmt(v,1):'—')+'</td>';});
+        html+='<td class="nr"><strong>'+fmt(tot,1)+'</strong></td></tr>';
+      });
+    });
+    html+='</tbody></table></div>';
+  }
+  document.getElementById('tbl-container').innerHTML=html||'<div class="empty">Tidak ada data</div>';
+}
+
+function sortTbl(th,col){
+  var table=th.closest('table'),tbody=table.tBodies[0];
+  var rows=Array.from(tbody.rows).filter(function(r){return !r.classList.contains('tr-tot');});
+  var sumRow=Array.from(tbody.rows).find(function(r){return r.classList.contains('tr-tot');});
+  var asc=th.classList.contains('asc');
+  table.querySelectorAll('th').forEach(function(t){t.classList.remove('asc','desc');});
+  th.classList.add(asc?'desc':'asc');
+  var dir=asc?-1:1;
+  rows.sort(function(a,b){
+    var ci=col<0?a.cells.length-1:col;
+    var av=a.cells[ci].textContent.replace(/[,.\s]/g,''),bv=b.cells[ci].textContent.replace(/[,.\s]/g,'');
+    var an=parseFloat(av),bn=parseFloat(bv);
+    return isNaN(an)||isNaN(bn)?av.localeCompare(bv)*dir:(an-bn)*dir;
+  });
+  rows.forEach(function(r){tbody.appendChild(r);});
+  if(sumRow)tbody.appendChild(sumRow);
+}
+
+
+// ══════════════════════════════════════════
+// UPLOAD & PARSE
+// ══════════════════════════════════════════
+var _fi  = document.getElementById('fi');
+var _upZ = document.getElementById('up-zone');
+
+// Logo upload
+var _logoFi = document.getElementById('logo-fi');
+if (_logoFi) {
+  _logoFi.onchange = function() {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = document.getElementById('logo-img');
+      var icon = document.getElementById('logo-icon');
+      img.src = e.target.result;
+      img.style.display = 'block';
+      icon.style.display = 'none';
+    };
+    reader.readAsDataURL(f);
+    this.value = '';
+  };
+}
+
+_fi.onchange = function() {
+  var f = this.files && this.files[0];
+  if (f) readXL(f);
+  this.value = '';
+};
+_upZ.ondragover  = function(e){ e.preventDefault(); _upZ.classList.add('dragover'); };
+_upZ.ondragleave = function(){ _upZ.classList.remove('dragover'); };
+_upZ.ondrop      = function(e){
+  e.preventDefault(); _upZ.classList.remove('dragover');
+  var f = e.dataTransfer && e.dataTransfer.files[0];
+  if (f) readXL(f);
+};
+
+function upSts(msg, type) {
+  var el = document.getElementById('up-sts');
+  var colors = {ok:'#dcfce7;color:#15803d;border:1px solid #86efac', err:'#fee2e2;color:#b91c1c;border:1px solid #fca5a5', info:'#dbeafe;color:#1d4ed8;border:1px solid #93c5fd'};
+  el.style.cssText = 'display:block;background:' + (colors[type]||colors.info);
+  el.textContent = msg;
+}
+
+function readXL(file) {
+  if (!file.name.match(/\.(xlsx|xls)$/i)) { upSts('Format tidak valid — gunakan .xlsx atau .xls', 'err'); return; }
+  upSts('Membaca file...', 'info');
+  var reader = new FileReader();
+  reader.onerror = function() { upSts('Gagal membaca file.', 'err'); };
+  reader.onload  = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, { type:'array', cellDates:false });
+      parseWB(wb);
+      upSts('✓ ' + RAW_EM.length + ' catatan emisi · ' + RAW_ACT.length + ' catatan aktivitas', 'ok');
+      setTimeout(launchDash, 300);
+    } catch(err) {
+      upSts('Error: ' + err.message, 'err');
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseMonthSafe(val) {
+  if (!val && val !== 0) return 0;
+  // cellDates:false — SheetJS returns Excel serial number (integer) or formatted string
+  // Parse serial number using UTC epoch math — zero timezone involvement
+  if (typeof val === 'number' && val > 1000) {
+    // Excel serial: days since 1899-12-30 (UTC)
+    var ms = (val - 25569) * 86400 * 1000; // 25569 = days between 1899-12-30 and 1970-01-01
+    var d = new Date(ms);
+    return d.getUTCMonth() + 1;
+  }
+  // String formats
+  var s = String(val).trim();
+  // ISO: YYYY-MM-DD (most common from SheetJS)
+  var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return parseInt(iso[2], 10);
+  // M/D/YYYY or MM/DD/YYYY
+  var mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mdy) return parseInt(mdy[1], 10);
+  // YYYY/MM/DD
+  var ymd = s.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+  if (ymd) return parseInt(ymd[2], 10);
+  // Date object fallback (should not happen with cellDates:false)
+  if (val instanceof Date) return isNaN(val.getTime()) ? 0 : val.getUTCMonth() + 1;
+  return 0;
+}
+
+function findCol(rows, aliases) {
+  if (!rows.length) return null;
+  var keys = Object.keys(rows[0]);
+  for (var i=0; i<aliases.length; i++) {
+    for (var j=0; j<keys.length; j++) {
+      if (keys[j].toLowerCase() === aliases[i].toLowerCase()) return keys[j];
+    }
+  }
+  for (var i=0; i<aliases.length; i++) {
+    for (var j=0; j<keys.length; j++) {
+      if (keys[j].toLowerCase().indexOf(aliases[i].toLowerCase()) >= 0) return keys[j];
+    }
+  }
+  return null;
+}
+
+function sheetRows(wb, names) {
+  for (var i=0; i<names.length; i++) {
+    if (wb.Sheets[names[i]]) return XLSX.utils.sheet_to_json(wb.Sheets[names[i]], {defval:''});
+  }
+  return [];
+}
+
+function normScope(s) {
+  var sl = String(s||'').trim().toLowerCase().replace(/\s/g,'');
+  if (sl.indexOf('scope1')>=0||sl==='1'||sl==='s1'||sl==='direct') return 'Scope 1';
+  if (sl.indexOf('scope2')>=0||sl==='2'||sl==='s2'||sl==='indirect') return 'Scope 2';
+  return String(s||'').trim();
+}
+
+function parseWB(wb) {
+  // Emission result
+  var emRaw = sheetRows(wb, ['ghg_emission_result','ghg_calc_scope1','emissions','ghg_emissions','emission_result']);
+  if (!emRaw.length) {
+    // Fallback: sheet with most rows
+    var best = wb.SheetNames.reduce(function(b,n){
+      var r = XLSX.utils.sheet_to_json(wb.Sheets[n]||{}).length;
+      return r>b.r?{n:n,r:r}:b;
+    },{n:wb.SheetNames[0],r:0});
+    emRaw = XLSX.utils.sheet_to_json(wb.Sheets[best.n], {defval:''});
+  }
+
+  var cYear   = findCol(emRaw, ['reporting_year','year','fiscal_year','report_year','data_year']);
+  var cScope  = findCol(emRaw, ['scope','scope_category','ghg_scope','emission_scope']);
+  var cSrc    = findCol(emRaw, ['source_type','source_category','emission_source','activity_type','source']);
+  var cVal    = findCol(emRaw, ['emission_value_standardized','emission_value','total_co2e','ghg_quantity','co2e']);
+  var cPeriod   = findCol(emRaw, ['reporting_period','period','date','start_date']);
+  var cMethod   = findCol(emRaw, ['scope2_method','method','calculation_method']);
+
+  if (!cYear || !cVal || !cScope) throw new Error('Kolom utama tidak ditemukan. Perlu: tahun, scope, nilai emisi.');
+
+  RAW_EM = [];
+  emRaw.forEach(function(r) {
+    var yr  = r[cYear];
+    var val = parseFloat(String(r[cVal]||'').replace(/,/g,''));
+    if (!yr || isNaN(val) || val <= 0) return;
+    yr = String(Math.round(parseFloat(yr)));
+    var mon = 0;
+    if (cPeriod && r[cPeriod]) {
+      mon = parseMonthSafe(r[cPeriod]);
+    }
+    var method = cMethod ? String(r[cMethod]||'').trim() : '';
+    var srcKey = String(r[cSrc]||'Unknown').trim();
+    // Scope 2 with method: keep location-based and market-based STRICTLY separate
+    if (normScope(r[cScope])==='Scope 2' && method) srcKey = srcKey + ' [' + method + ']';
+    RAW_EM.push({ year:yr, mon:mon, src:srcKey, scope:normScope(r[cScope]), val:parseFloat(val.toFixed(3)) });
+  });
+
+  // Activity data
+  var actRaw = sheetRows(wb, ['ghg_activity_data','activity_data','activities','consumption_data','energy_data']);
+  var aYear   = findCol(actRaw, ['reporting_year','year']);
+  var aSrc    = findCol(actRaw, ['source_type','source_category','activity_type','source']);
+  var aQty    = findCol(actRaw, ['quantity','quantity_standardized','consumption','activity_quantity']);
+  var aUnit   = findCol(actRaw, ['quantity_unit','unit','quantity_standardized_unit']);
+  var aPeriod = findCol(actRaw, ['reporting_period','period','date']);
+
+  RAW_ACT = []; UNITS = {};
+  if (aYear && aSrc && aQty) {
+    actRaw.forEach(function(r) {
+      var yr  = r[aYear];
+      var qty = parseFloat(String(r[aQty]||'').replace(/,/g,''));
+      if (!yr || isNaN(qty) || qty <= 0) return;
+      yr = String(Math.round(parseFloat(yr)));
+      var src  = String(r[aSrc]||'').trim();
+      var unit = aUnit ? String(r[aUnit]||'') : '';
+      var mon  = 0;
+      if (aPeriod && r[aPeriod]) { mon=parseMonthSafe(r[aPeriod]); }
+      if (unit && !UNITS[src]) UNITS[src] = unit;
+      RAW_ACT.push({ year:yr, mon:mon, src:src, qty:parseFloat(qty.toFixed(1)), unit:unit });
+    });
+  }
+
+  // Derive ALL_YEARS, ALL_SRCS
+  var yrSet={}, srcSet={};
+  RAW_EM.forEach(function(r){ yrSet[r.year]=1; srcSet[r.src]=1; });
+  ALL_YEARS  = Object.keys(yrSet).sort();
+  ALL_SRCS   = Object.keys(srcSet);
+  // Rebuild ALL_SCOPES from actual data
+  var scSet={};
+  RAW_EM.forEach(function(r){ scSet[r.scope]=1; });
+  ALL_SCOPES = Object.keys(scSet).sort();
+
+  // Assign colors for new sources
+  var defaultColors=['#f59e0b','#8b5cf6','#3b82f6','#10b981','#ef4444','#06b6d4','#f97316','#ec4899','#84cc16','#14b8a6'];
+  ALL_SRCS.forEach(function(s,i){ if(!SRC_COLORS[s]) SRC_COLORS[s]=defaultColors[i%defaultColors.length]; });
+
+  // Assign YR_COLORS for new years
+  var yrColorPool=['#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#06b6d4'];
+  ALL_YEARS.forEach(function(y,i){ if(!YR_COLORS[y]) YR_COLORS[y]=yrColorPool[i%yrColorPool.length]; });
+}
+
+function applyProfile() {
+  var company = document.getElementById('inp-company').value.trim();
+  var pStart  = document.getElementById('inp-period-start').value.trim();
+  var pEnd    = document.getElementById('inp-period-end').value.trim();
+  var logoImg = document.getElementById('logo-img');
+
+  // Topbar title
+  var tbTitle = document.querySelector('.tb-title');
+  if (tbTitle) tbTitle.textContent = 'GHG Inventory Dashboard';
+
+  // Topbar subtitle
+  var tbSub = document.querySelector('.tb-sub');
+  if (tbSub) {
+    var parts = [];
+    if (company) parts.push(company);
+    if (pStart && pEnd) parts.push(pStart + '–' + pEnd);
+    else if (pStart) parts.push(pStart);
+    tbSub.textContent = parts.length ? parts.join(' · ') : 'GRK Inventory';
+  }
+
+  // Topbar logo
+  var tbLogo = document.querySelector('.tb-logo');
+  if (tbLogo && logoImg && logoImg.src && logoImg.style.display !== 'none') {
+    tbLogo.innerHTML = '';
+    var img = document.createElement('img');
+    img.src = logoImg.src;
+    img.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:5px';
+    tbLogo.appendChild(img);
+  }
+}
+
+function launchDash() {
+  applyProfile();
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('dash-screen').style.display   = 'block';
+
+  // Build filter chips dynamically
+  buildFilterChips();
+
+  // Draw initial tab
+  drawOvKpi(); drawOvTrend(); drawOvPie(); drawMbS1(); drawOvMonthly(); drawOvYoy();
+
+  // Build year controls
+  var ovPieYr = document.getElementById('ov-pie-yr-ctrl');
+  ovPieYr.innerHTML = '<div class="seg" id="ov-pie-yr-seg">' +
+    ALL_YEARS.map(function(y,i){return '<button class="sb'+(i===ALL_YEARS.length-1?' on':'')+'" data-seg="ov-pie-yr-seg" onclick="doSeg(this);drawOvPie()">'+y+'</button>';}).join('') + '</div>';
+  var ovMonYr = document.getElementById('ov-mon-yr-ctrl');
+  ovMonYr.innerHTML = '<div class="seg" id="ov-mon-yr-seg">' +
+    ALL_YEARS.map(function(y,i){return '<button class="sb'+(i===ALL_YEARS.length-1?' on':'')+'" data-seg="ov-mon-yr-seg" onclick="doSeg(this);drawOvMonthly()">'+y+'</button>';}).join('') + '</div>';
+}
+
+function buildFilterChips() {
+  // Scope chips
+  var scopeDiv = document.getElementById('fb-scope');
+  scopeDiv.innerHTML = ALL_SCOPES.map(function(s){
+    return '<span class="filter-chip" data-dim="scope" data-val="'+s+'" onclick="toggleFilter(this)">'+s+'</span>';
+  }).join('');
+
+  // Source chips
+  var srcDiv = document.getElementById('fb-src');
+  srcDiv.innerHTML = ALL_SRCS
+    .filter(function(s){ return s.indexOf('[market-based]')<0; })
+    .map(function(s){
+      var label=s.replace('National Grid (PLN)','PLN').replace('Refrigerant ','')
+                 .replace(' [location-based]','');
+      return '<span class="filter-chip" data-dim="src" data-val="'+s+'" onclick="toggleFilter(this)">'+label+'</span>';
+    }).join('');
+
+  // Year chips
+  var yrDiv = document.getElementById('fb-year');
+  yrDiv.innerHTML = ALL_YEARS.map(function(y){
+    return '<span class="filter-chip" data-dim="year" data-val="'+y+'" onclick="toggleFilter(this)">'+y+'</span>';
+  }).join('');
+
+  // Ops source select
+  var opsSrc = document.getElementById('ops-src');
+  if (opsSrc) {
+    var opsSrcs = Object.keys(UNITS).filter(function(s){ return RAW_ACT.some(function(r){return r.src===s;}); });
+    opsSrc.innerHTML = opsSrcs.map(function(s){ return '<option value="'+s+'">'+s+' ('+(UNITS[s]||'unit')+')</option>'; }).join('');
+  }
+}
+
+// ══════════════════════════════════════════
+// INIT (static — build controls only after data loaded)
+// ══════════════════════════════════════════
+// Initialized by launchDash() after upload
+
+</script>
+</div><!-- end dash-screen -->
+</body>
+</html>
